@@ -1,0 +1,7 @@
+json
+boto3
+boto3.exceptions
+hmac
+hashlib
+base64
+os

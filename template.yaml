@@ -1,0 +1,1226 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  ApiGatewayStageName:
+    Type: String
+    Description: Stage name for the API Gateway
+
+Resources:
+#Roles
+  IsrRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: IsrRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: IsrPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: '*'
+                Resource: '*'
+#IMA Policyes
+  IsrPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: IsrPolicy
+      Roles:
+        - Ref: IsrRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              -  dynamodb:*
+              - dax:*
+              - application-autoscaling:DeleteScalingPolicy
+              - application-autoscaling:DeregisterScalableTarget
+              - application-autoscaling:DescribeScalableTargets
+              - application-autoscaling:DescribeScalingActivities
+              - application-autoscaling:DescribeScalingPolicies
+              - application-autoscaling:PutScalingPolicy
+              - application-autoscaling:RegisterScalableTarget
+              - cloudwatch:DeleteAlarms
+              - cloudwatch:DescribeAlarmHistory
+              - cloudwatch:DescribeAlarms
+              - cloudwatch:DescribeAlarmsForMetric
+              - cloudwatch:GetMetricStatistics
+              - cloudwatch:ListMetrics
+              - cloudwatch:PutMetricAlarm
+              - cloudwatch:GetMetricData
+              - datapipeline:ActivatePipeline
+              - datapipeline:CreatePipeline
+              - datapipeline:DeletePipeline
+              - datapipeline:DescribeObjects
+              - datapipeline:DescribePipelines
+              - datapipeline:GetPipelineDefinition
+              - datapipeline:ListPipelines
+              - datapipeline:PutPipelineDefinition
+              - datapipeline:QueryObjects
+              - ec2:DescribeVpcs
+              - ec2:DescribeSubnets
+              - ec2:DescribeSecurityGroups
+              - iam:GetRole
+              - iam:ListRoles
+              - kms:DescribeKey
+              - kms:ListAliases
+              - sns:CreateTopic
+              - sns:DeleteTopic
+              - sns:ListSubscriptions
+              - sns:ListSubscriptionsByTopic
+              - sns:ListTopics
+              - sns:Subscribe
+              - sns:Unsubscribe
+              - sns:SetTopicAttributes
+              - lambda:CreateFunction
+              - lambda:ListFunctions
+              - lambda:ListEventSourceMappings
+              - lambda:CreateEventSourceMapping
+              - lambda:DeleteEventSourceMapping
+              - lambda:GetFunctionConfiguration
+              - lambda:DeleteFunction
+              - resource-groups:ListGroups
+              - resource-groups:ListGroupResources
+              - resource-groups:GetGroup
+              - resource-groups:GetGroupQuery
+              - resource-groups:DeleteGroup
+              - resource-groups:CreateGroup
+              - tag:GetResources
+              - kinesis:ListStreams
+              - kinesis:DescribeStream
+              - kinesis:DescribeStreamSummary
+              - s3:*
+              - s3-object-lambda:*
+              - cognito-identity:*
+              - cognito-idp:*
+              - cognito-sync:*
+              - iam:ListRoles
+              - iam:ListOpenIdConnectProviders
+              - iam:GetRole
+              - iam:ListSAMLProviders
+              - iam:GetSAMLProvider
+              - kinesis:ListStreams
+              - lambda:GetPolicy
+              - lambda:ListFunctions
+              - sns:GetSMSSandboxAccountStatus
+              - sns:ListPlatformApplications
+              - ses:ListIdentities
+              - ses:GetIdentityVerificationAttributes
+              - mobiletargeting:GetApps
+              - acm:ListCertificates
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - lambda:InvokeFunction
+              - lambda:InvokeAsync
+            Resource: '*'
+# APi Gateway
+  Invinsource:
+    Type: 'AWS::Serverless::Api'
+    Properties:
+      StageName: !Ref ApiGatewayStageName
+      DefinitionBody:
+        swagger: '2.0'
+        info:
+          title: 'Invinsource'
+        paths:
+          /api:
+            get:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${mockFunction.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api/auth:
+            get:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${mockFunction.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api/Register:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Register.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api/Login:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Login.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /user/GetProfile:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${isrsingleuserprofile.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api/auth/Forgot:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ForgotPassword.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api/user/GlobalSignout:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GlobalSignout.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api/user/ChangePassword:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ChangePassword.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api//AdminToUser:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AdminToUser.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api/DisableUserStatus:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DisableUserStatus.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /UploadImage:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UploadImage.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api/auth/ConformForgetPassword:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ConformForgetPassword.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api/UserConformSignup:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UserConformSignup.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api/user/UpdateProfileUser:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UpdateProfileUser.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api/auth/UpdateProfileAdmin:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UpdateProfileAdmin.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api/UserToAdmin:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UserToAdmin.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api/AllUserProfile:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AllUserProfile.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api/EnableUser:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${EnableUser.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api/AdminUserGlobalSignout:
+            post:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AdminUserGlobalSignout.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+          /api/auth/test:
+            get:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 'Success'
+                  schema:
+                    type: object
+              x-amazon-apigateway-integration:
+                type: AWS
+                httpMethod: POST
+                uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${mockFunction.Arn}/invocations'
+                passthroughBehavior: when_no_match
+                contentHandling: CONVERT_TO_TEXT
+                responses:
+                  default:
+                    statusCode: '200'
+                requestTemplates:
+                  application/json: |
+                    {
+                      "method": "$context.httpMethod",
+                      "body" : $input.json('$'),
+                      "headers": {
+                        #foreach($param in $input.params().header.keySet())
+                        "$param": "$util.escapeJavaScript($input.params().header.get($param))"
+                        #if($foreach.hasNext),#end
+                        #end
+                      }
+                    }
+  # Lambda Function
+  mockFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: Mock/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /api
+            Method: get
+  Register:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: Register/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /api/Register
+            Method: post
+  Login:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: Login/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /api/Login
+            Method: post
+  GetProfileCommmon:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: GetUserprofile/isr-get-user-profile.zip
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt IsrRole.Arn
+      
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+  DeleteImageFromS3:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: DeleteFromS3/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt IsrRole.Arn    
+  ForgotPassword:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: ForgotPassword/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /api/auth/Forgot
+            Method: post
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          USER_POOL_ID: ap-south-1_UQWQN01Qj        
+  isrsingleuserprofile:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      CodeUri: GetProfileUser/
+      Description: it's function which is called "isr-get-user-profile" internally
+      MemorySize: 128
+      Timeout: 5
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          FUNCTION_ARN: !GetAtt GetProfileCommmon.Arn
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /user/GetProfile
+            Method: post
+      RuntimeManagementConfig:
+        UpdateRuntimeOn: Auto
+  GlobalSignout:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: GlobalSignout/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /api/user/GlobalSignout
+            Method: post
+  ChangePassword:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: ChangePassword/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          FUNCTION_ARN: !GetAtt GetProfileCommmon.Arn
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /api/user/ChangePassword
+            Method: post
+  UpdateProfileAdmin:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: UpdateProfileAdmin/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /api/auth/UpdateProfileAdmin
+            Method: post
+  AdminToUser:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: AdminToUser/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          FUNCTION_ARN: !GetAtt GetProfileCommmon.Arn
+          
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /api//AdminToUser
+            Method: post
+  DisableUserStatus:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: DisableUserStatus/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          FUNCTION_ARN: !GetAtt GetProfileCommmon.Arn
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /api/DisableUserStatus
+            Method: post
+  UploadImage:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: UploadImage/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          FUNCTION_ARN: !GetAtt GetProfileCommmon.Arn
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /UploadImage
+            Method: post
+  ConformForgetPassword:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: ConformForgetPassword/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /api/auth/ConformForgetPassword
+            Method: post
+  UserConformSignup:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: UserConformSignup/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /api/UserConformSignup
+            Method: post
+  CommonUpdate:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: CommonUpdate/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /CommonUpdate
+            Method: post
+  UpdateProfileUser:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: UpdateProfileUser/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          FUNCTION_ARN: !GetAtt GetProfileCommmon.Arn
+          FUNCTION_ARN_Update: !GetAtt CommonUpdate.Arn
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /api/user/UpdateProfileUser
+            Method: post
+  UserToAdmin:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: UserToAdmin/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          FUNCTION_ARN: !GetAtt GetProfileCommmon.Arn
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /api/UserToAdmin
+            Method: post
+  AllUserProfile:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: AllUserProfile/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          FUNCTION_ARN: !GetAtt GetProfileCommmon.Arn
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /api/AllUserProfile
+            Method: post
+  EnableUser:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: EnableUser/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          FUNCTION_ARN: !GetAtt GetProfileCommmon.Arn
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /api/EnableUser
+            Method: post
+  AdminUserGlobalSignout:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: AdminUserGlobalSignout/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Environment:
+        Variables:
+          CLIENT_ID: 6k8sfit59u97q4glcbsppcbeil
+          CLIENT_SECRET: q9tuog0oectles3ot1u11jdimj4cc8ultsj508n8pi4mqcln2d5
+          REGION: ap-south-1
+          FUNCTION_ARN: !GetAtt GetProfileCommmon.Arn
+          USER_POOL_ID: ap-south-1_UQWQN01Qj
+          
+      Role: !GetAtt IsrRole.Arn
+      Events:
+        Invinsource:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Invinsource
+            Path: /api/AdminUserGlobalSignout
+            Method: post
+
+Outputs:
+  ApiGatewayInvokeURL:
+    Value: !Sub 'https://${Invinsource}.execute-api.${AWS::Region}.amazonaws.com/${ApiGatewayStageName}'
